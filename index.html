@@ -35,8 +35,11 @@
   <div class="container bg-gray-900 bg-opacity-90 p-8 rounded-xl shadow-2xl w-full max-w-lg text-gray-100">
     <h1 class="text-3xl font-bold mb-6 text-center text-blue-300">Steam Free Games</h1>
     <div id="auth-section">
+      <p class="text-sm mb-4 text-gray-400">
+        Sign in through Steam to access your account. Your login credentials will not be shared. A unique SteamID will be shared to identify your profile per your privacy settings.
+      </p>
       <a
-        href="https://steamcommunity.com/openid/login?openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.mode=checkid_setup&openid.return_to=https%3A%2F%2Fcors-anywhere.herokuapp.com%2Fhttps%3A%2F%2Fdavuksl.github.io%2Fauth%2Fsteam%2Freturn&openid.realm=https%3A%2F%2Fdavuksl.github.io&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select"
+        href="/auth/steam"
         class="block w-full p-3 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
       >
         Войти через Steam
@@ -78,19 +81,17 @@
       logs.scrollTop = logs.scrollHeight;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('openid.identity')) {
-      const identity = urlParams.get('openid.identity');
-      steamId = identity.match(/steamid\/(\d+)/)?.[1];
-      if (steamId) {
-        authSection.classList.add('hidden');
-        mainSection.classList.remove('hidden');
-        logMessage(`Logged in with SteamID: ${steamId}`, 'success');
-        window.history.replaceState({}, document.title, '/'); // Очистка URL
-      } else {
-        logMessage('Ошибка авторизации Steam', 'error');
-      }
-    }
+    fetch('/auth/steam/user')
+      .then(res => res.json())
+      .then(data => {
+        if (data.steamId) {
+          steamId = data.steamId;
+          authSection.classList.add('hidden');
+          mainSection.classList.remove('hidden');
+          logMessage(`Logged in with SteamID: ${steamId}`, 'success');
+          if (apiKeyInput.value) addFreeGames();
+        }
+      });
 
     async function addFreeGames() {
       if (isProcessing) return;
@@ -101,36 +102,35 @@
       logMessage('Starting to add free games...');
 
       const apiKey = apiKeyInput.value;
-      if (!steamId || !apiKey) {
-        logMessage('Ошибка: Введите API ключ и авторизуйтесь', 'error');
+      if (!apiKey) {
+        logMessage('Ошибка: Введите API ключ', 'error');
         stopProcessing();
         return;
       }
 
       try {
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-        const appList = await fetch(`${proxyUrl}https://api.steampowered.com/ISteamApps/GetAppList/v2/`)
-          .then(res => res.json())
-          .then(data => data.applist.apps.filter(app => app.name.toLowerCase().includes('free') || app.name.toLowerCase().includes('demo')).slice(0, 5));
+        const response = await fetch('/api/free-games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ steamId, apiKey })
+        });
+        const data = await response.json();
 
-        for (const game of appList) {
-          try {
-            const response = await fetch(
-              `${proxyUrl}https://api.steampowered.com/IStoreService/AddFreeLicense/v1/?key=${apiKey}&appid=${game.appid}&steamid=${steamId}`,
-              { method: 'POST' }
-            );
-            if (response.status === 429) {
-              logMessage('Rate limit reached. Pausing for 3 minutes...', 'warn');
-              await new Promise(resolve => setTimeout(resolve, 3 * 60 * 1000));
-              logMessage('Resuming...', 'info');
-              await addFreeGames();
-              return;
-            }
-            logMessage(`#${game.appid} Package ${game.appid} - [Ignore] OK`, 'success');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } catch (err) {
-            logMessage(`Failed to add game ${game.appid}: ${err.message}`, 'error');
+        if (data.error) {
+          logMessage(`Error: ${data.error}`, 'error');
+          if (data.error.includes('Rate limit')) {
+            logMessage('Rate limit reached. Pausing for 3 minutes...', 'warn');
+            await new Promise(resolve => setTimeout(resolve, 3 * 60 * 1000));
+            logMessage('Resuming...', 'info');
+            await addFreeGames();
+            return;
           }
+          stopProcessing();
+          return;
+        }
+
+        for (const game of data.games) {
+          logMessage(`#${game.id} Package ${game.packageId} - [Ignore] ${game.status}`, game.status === 'OK' ? 'success' : 'error');
         }
         logMessage('Process completed.', 'success');
       } catch (err) {
@@ -148,9 +148,10 @@
     }
 
     startBtn.addEventListener('click', addFreeGames);
-    if (steamId && apiKeyInput.value) {
-      addFreeGames();
-    }
+
+    apiKeyInput.addEventListener('input', () => {
+      if (steamId && apiKeyInput.value && !isProcessing) addFreeGames();
+    });
   </script>
 </body>
 </html>
