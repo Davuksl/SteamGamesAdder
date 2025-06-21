@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steam Free Games</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .log-entry {
+      transition: all 0.3s ease-in-out;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .log-entry.success { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+    .log-entry.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .log-entry.warn { background: rgba(234, 179, 8, 0.1); color: #eab308; }
+    .container {
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container bg-gray-900 bg-opacity-90 p-8 rounded-xl shadow-2xl w-full max-w-lg text-gray-100">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-300">Steam Free Games</h1>
+    <div id="auth-section">
+      <a
+        href="https://steamcommunity.com/openid/login?openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&openid.mode=checkid_setup&openid.return_to=https%3A%2F%2Fcors-anywhere.herokuapp.com%2Fhttps%3A%2F%2Fexample.com%2Fauth%2Fsteam%2Freturn&openid.realm=https%3A%2F%2Fexample.com&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select"
+        class="block w-full p-3 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Войти через Steam
+      </a>
+    </div>
+    <div id="main-section" class="hidden">
+      <input
+        id="api-key"
+        type="text"
+        placeholder="Введите Steam API ключ"
+        class="w-full p-3 mb-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      <button
+        id="start-btn"
+        class="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Начать добавление игр
+      </button>
+      <div class="max-h-[300px] overflow-y-auto bg-gray-800 p-4 rounded-lg mt-4">
+        <pre id="logs" class="text-sm"></pre>
+      </div>
+    </div>
+  </div>
+  <script>
+    const authSection = document.getElementById('auth-section');
+    const mainSection = document.getElementById('main-section');
+    const apiKeyInput = document.getElementById('api-key');
+    const startBtn = document.getElementById('start-btn');
+    const logs = document.getElementById('logs');
+    let isProcessing = false;
+    let steamId = null;
+
+    function logMessage(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry ${type}`;
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      logs.appendChild(logEntry);
+      logs.scrollTop = logs.scrollHeight;
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('openid.identity')) {
+      const identity = urlParams.get('openid.identity');
+      steamId = identity.match(/steamid\/(\d+)/)?.[1];
+      if (steamId) {
+        authSection.classList.add('hidden');
+        mainSection.classList.remove('hidden');
+        logMessage(`Logged in with SteamID: ${steamId}`, 'success');
+        window.history.replaceState({}, document.title, '/'); // Очистка URL
+      } else {
+        logMessage('Ошибка авторизации Steam', 'error');
+      }
+    }
+
+    async function addFreeGames() {
+      if (isProcessing) return;
+      isProcessing = true;
+      startBtn.textContent = 'Обработка...';
+      startBtn.classList.replace('bg-blue-600', 'bg-gray-600');
+      startBtn.disabled = true;
+      logMessage('Starting to add free games...');
+
+      const apiKey = apiKeyInput.value;
+      if (!steamId || !apiKey) {
+        logMessage('Ошибка: Введите API ключ и авторизуйтесь', 'error');
+        stopProcessing();
+        return;
+      }
+
+      try {
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const appList = await fetch(`${proxyUrl}https://api.steampowered.com/ISteamApps/GetAppList/v2/`)
+          .then(res => res.json())
+          .then(data => data.applist.apps.filter(app => app.name.toLowerCase().includes('free') || app.name.toLowerCase().includes('demo')).slice(0, 5));
+
+        for (const game of appList) {
+          try {
+            const response = await fetch(
+              `${proxyUrl}https://api.steampowered.com/IStoreService/AddFreeLicense/v1/?key=${apiKey}&appid=${game.appid}&steamid=${steamId}`,
+              { method: 'POST' }
+            );
+            if (response.status === 429) {
+              logMessage('Rate limit reached. Pausing for 3 minutes...', 'warn');
+              await new Promise(resolve => setTimeout(resolve, 3 * 60 * 1000));
+              logMessage('Resuming...', 'info');
+              await addFreeGames();
+              return;
+            }
+            logMessage(`#${game.appid} Package ${game.appid} - [Ignore] OK`, 'success');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (err) {
+            logMessage(`Failed to add game ${game.appid}: ${err.message}`, 'error');
+          }
+        }
+        logMessage('Process completed.', 'success');
+      } catch (err) {
+        logMessage(`Error: ${err.message}`, 'error');
+      } finally {
+        stopProcessing();
+      }
+    }
+
+    function stopProcessing() {
+      isProcessing = false;
+      startBtn.textContent = 'Начать добавление игр';
+      startBtn.classList.replace('bg-gray-600', 'bg-blue-600');
+      startBtn.disabled = false;
+    }
+
+    startBtn.addEventListener('click', addFreeGames);
+    if (steamId && apiKeyInput.value) {
+      addFreeGames();
+    }
+  </script>
+</body>
+</html>
