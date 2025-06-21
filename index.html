@@ -8,13 +8,16 @@
     background: linear-gradient(135deg, #4b0082, #1c1c2b);
     color: #ccc;
     font-family: Arial, sans-serif;
-    margin: 0; padding: 0;
-    display: flex; flex-direction: column; align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     height: 100vh;
+    margin: 0;
   }
   #avatar {
     margin-top: 20px;
-    width: 64px; height: 64px;
+    width: 64px;
+    height: 64px;
     border: 3px solid #7f5af0;
     border-radius: 50%;
     background-size: cover;
@@ -54,82 +57,10 @@
 </style>
 </head>
 <body>
-  <div id="avatar" style="background-image:none"></div>
+  <div id="avatar"></div>
   <div id="username">Not logged in</div>
   <button id="start">Start Adding Free Games</button>
   <pre id="logs">[LOG] Waiting for action...</pre>
-
-<script>
-const avatarEl = document.getElementById('avatar');
-const usernameEl = document.getElementById('username');
-const logs = document.getElementById('logs');
-const startBtn = document.getElementById('start');
-
-function log(msg) {
-  const time = new Date().toLocaleTimeString();
-  logs.textContent += `\n[${time}] ${msg}`;
-  logs.scrollTop = logs.scrollHeight;
-}
-
-async function loadSubids() {
-  log('Loading subids...');
-  const res = await fetch('https://davuksl.github.io/SteamGamesAdder/subids.txt');
-  const text = await res.text();
-  const ids = [];
-  for (const line of text.split('\n')) {
-    const m = line.match(/Package\s+(\d+)/);
-    if (m) ids.push(m[1]);
-  }
-  log(`Loaded ${ids.length} packages.`);
-  return ids;
-}
-
-function getSteamUserInfo() {
-  return new Promise(resolve => {
-    chrome.runtime.sendMessage({action: 'getUserInfo'}, resp => {
-      if (resp && resp.avatar && resp.name) {
-        resolve(resp);
-      } else {
-        resolve(null);
-      }
-    });
-  });
-}
-
-async function startAdding() {
-  startBtn.disabled = true;
-  const subids = await loadSubids();
-  const chunkSize = 50;
-  for (let i = 0; i < subids.length; i += chunkSize) {
-    const chunk = subids.slice(i, i + chunkSize);
-    log(`Sending ${chunk.length} packages to extension...`);
-    const results = await new Promise(resolve => {
-      chrome.runtime.sendMessage({action: 'addPackages', subids: chunk}, resolve);
-    });
-    results.forEach(r => log(`Package ${r.subid} - ${r.status}`));
-    if (results.some(r => r.status === 'RATE_LIMIT')) {
-      log('Rate limit hit. Pausing 3 minutes...');
-      await new Promise(r => setTimeout(r, 180000));
-    }
-  }
-  log('Finished processing all packages.');
-  startBtn.disabled = false;
-}
-
-async function init() {
-  const userInfo = await getSteamUserInfo();
-  if (userInfo) {
-    avatarEl.style.backgroundImage = `url(${userInfo.avatar})`;
-    usernameEl.textContent = userInfo.name;
-    log('User info loaded.');
-  } else {
-    log('User not logged in or extension not installed.');
-  }
-}
-
-startBtn.onclick = startAdding;
-
-init();
-</script>
+  <script src="content.js"></script>
 </body>
 </html>
