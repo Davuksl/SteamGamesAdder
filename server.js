@@ -34,7 +34,7 @@ app.use(passport.session());
 passport.use(new SteamStrategy({
   returnURL: 'http://localhost:3000/auth/steam/return',
   realm: 'http://localhost:3000/',
-  apiKey: 'YOUR_STEAM_API_KEY' // Замените на ваш Steam API ключ
+  apiKey: 'F3F2B3D594672F2096E7C4C5451DA38D' // Замените на ваш Steam API ключ
 }, (identifier, profile, done) => {
   logger.info(`Authenticated user with SteamID: ${profile.id}`);
   return done(null, { steamId: profile.id });
