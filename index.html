@@ -72,6 +72,9 @@
                     logMessage(data.message);
                 } else if (action === 'status') {
                     status.textContent = data.status;
+                    if (data.status === 'Status: Completed' || data.status === 'Status: Error') {
+                        startBtn.disabled = false;
+                    }
                 } else if (action === 'progress') {
                     progressBar.style.width = `${data.progress}%`;
                 }
@@ -81,7 +84,12 @@
         startBtn.addEventListener('click', () => {
             startBtn.disabled = true;
             logMessage('Requesting extension to start adding games...');
-            window.postMessage({ type: 'TO_EXTENSION', action: 'startAddingGames' }, '*');
+            try {
+                window.postMessage({ type: 'TO_EXTENSION', action: 'startAddingGames' }, '*');
+            } catch (error) {
+                logMessage(`Error starting process: ${error.message}`);
+                startBtn.disabled = false;
+            }
         });
     </script>
 </body>
