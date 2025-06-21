@@ -83,13 +83,15 @@
         }
 
         async function addPackage(subId) {
-            // Note: This is a simplified version. Actual Steam API interaction requires authentication
-            // and proper session handling, which is implemented in the extension
             try {
                 logMessage(`Attempting to add package ${subId}`);
-                // Simulated API call
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                logMessage(`Successfully added package ${subId}`);
+                await chrome.runtime.sendMessage({ action: 'addPackage', subId }, response => {
+                    if (response.success) {
+                        logMessage(`Successfully added package ${subId}`);
+                    } else {
+                        logMessage(`Failed to add package ${subId}: ${response.error}`);
+                    }
+                });
                 return true;
             } catch (error) {
                 logMessage(`Failed to add package ${subId}: ${error.message}`);
