@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -13,16 +12,17 @@
     const subids = [1339553, 1800790, 1800792];
 
     document.getElementById("go").onclick = () => {
-      chrome.runtime.sendMessage("YOUR_EXTENSION_ID", {
-        action: "addPackages",
-        subids
-      }, response => {
+      window.postMessage({ type: "STEAM_ADD", subids }, "*");
+    };
+
+    window.addEventListener("message", (event) => {
+      if (event.data.type === "STEAM_ADD_RESULT") {
         const log = document.getElementById("log");
-        response.results.forEach(r => {
+        event.data.results.forEach(r => {
           log.textContent += `[${new Date().toLocaleTimeString()}] Package ${r.subid} - ${r.status}\n`;
         });
-      });
-    };
+      }
+    });
   </script>
 </body>
 </html>
