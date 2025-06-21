@@ -14,40 +14,35 @@
   <button id="start">Start Adding Free Games</button>
   <div id="logs">[LOG] Waiting for action...</div>
 <script>
-const logs = document.getElementById('logs');
-const btn = document.getElementById('start');
-function log(t){ logs.textContent += '\n'+new Date().toLocaleTimeString()+' '+t; logs.scrollTop=logs.scrollHeight; }
-
+const logs = document.getElementById("logs"),
+      btn = document.getElementById("start");
+function log(t){ logs.textContent+="\n"+new Date().toLocaleTimeString()+" "+t; logs.scrollTop=logs.scrollHeight; }
 async function loadSubids(){
-  const t = await fetch('https://davuksl.github.io/SteamGamesAdder/subids.txt').then(r=>r.text());
+  const t=await fetch("https://davuksl.github.io/SteamGamesAdder/subids.txt").then(r=>r.text());
   return Array.from(t.matchAll(/Package\s+(\d+)/g),m=>m[1]);
 }
-
 btn.onclick=async()=>{
-  btn.disabled = true;
-  log('Loading subids…');
-  const all = await loadSubids();
-  log(`Loaded ${all.length} packages`);
+  btn.disabled=true; log("Loading subids…");
+  const all=await loadSubids(); log("Loaded "+all.length);
   for(let i=0;i<all.length;i+=50){
-    const chunk = all.slice(i, i+50);
-    log(`Sending ${chunk.length}…`);
-    window.postMessage({ action: 'addPackages', subids: chunk }, '*');
-    const res = await new Promise(r=>{
-      window.addEventListener('message', function cb(e){
-        if(e.data?.action==='addPackagesResult'){
-          window.removeEventListener('message',cb);
+    const chunk=all.slice(i,i+50);
+    log("Sending "+chunk.length);
+    window.postMessage({ action:"addPackages", subids:chunk },"*");
+    const res=await new Promise(r=>{
+      window.addEventListener("message",function f(e){
+        if(e.data?.action==="addPackagesResult"){
+          window.removeEventListener("message",f);
           r(e.data.results);
         }
       });
     });
-    res.forEach(x=>log(`Package ${x.subid} - ${x.status}`));
-    if(res.some(x=>x.status==='RATE_LIMIT')){
-      log('Rate limit – waiting 3m');
+    res.forEach(x=>log("Package "+x.subid+" - "+x.status));
+    if(res.some(x=>x.status==="RATE_LIMIT")){
+      log("Rate limit – waiting 3m");
       await new Promise(r=>setTimeout(r,180000));
     }
   }
-  log('Done');
-  btn.disabled = false;
+  log("Done"); btn.disabled=false;
 };
 </script>
 </body>
