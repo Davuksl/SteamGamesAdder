@@ -1,46 +1,135 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Steam Free Game Adder</title>
+<title>Steam Free Games Adder</title>
 <style>
-  body{background:linear-gradient(135deg,#2f005f,#170037);color:#eee;font-family:sans-serif;padding:30px;display:flex;flex-direction:column;align-items:center}
-  h1{color:#b79cff;margin-bottom:20px}
-  button{background:#7a5cff;border:none;padding:15px 30px;border-radius:10px;color:#fff;font-size:18px;cursor:pointer;transition:background .3s;margin-bottom:25px;user-select:none}
-  button:hover{background:#5636b8}
-  pre{background:rgba(255 255 255 / 0.1);border-radius:12px;padding:20px;width:90vw;max-width:800px;max-height:450px;overflow-y:auto;font-family:monospace;font-size:14px;box-shadow:0 0 20px #6a48ffaa;white-space:pre-wrap}
+  body {
+    background: linear-gradient(135deg, #4b0082, #1c1c2b);
+    color: #ccc;
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column; align-items: center;
+    height: 100vh;
+  }
+  #avatar {
+    margin-top: 20px;
+    width: 64px; height: 64px;
+    border: 3px solid #7f5af0;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+  }
+  #username {
+    margin: 10px 0;
+    font-size: 20px;
+    color: #7f5af0;
+  }
+  #logs {
+    background: #222233;
+    border: 1px solid #7f5af0;
+    width: 90%;
+    max-width: 800px;
+    height: 300px;
+    overflow-y: auto;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 14px;
+    white-space: pre-wrap;
+  }
+  #start {
+    margin: 20px;
+    padding: 12px 24px;
+    font-size: 18px;
+    background: #7f5af0;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #start:disabled {
+    background: #444466;
+    cursor: not-allowed;
+  }
 </style>
 </head>
 <body>
-<h1>Steam Free Game Activator</h1>
-<button id="startBtn">Активировать бесплатные пакеты</button>
-<pre id="log">[LOG] Waiting for action...\n</pre>
+  <div id="avatar" style="background-image:none"></div>
+  <div id="username">Not logged in</div>
+  <button id="start">Start Adding Free Games</button>
+  <pre id="logs">[LOG] Waiting for action...</pre>
+
 <script>
-const logEl=document.getElementById("log")
-function log(t){logEl.textContent+=t+"\n";logEl.scrollTop=logEl.scrollHeight}
-document.getElementById("startBtn").onclick=async()=>{
-  logEl.textContent=""
-  log("[LOG] Загружаю список пакетов...")
-  try{
-    const res=await fetch("https://davuksl.github.io/SteamGamesAdder/subids.txt")
-    const raw=await res.text()
-    const subids=Array.from(raw.matchAll(/Package (\d+)/g),m=>Number(m[1]))
-    if(!subids.length){log("[ERROR] Не найдено ни одного package id");return}
-    log("[LOG] Найдено пакетов: "+subids.length)
-    const limited=subids.slice(0,50)
-    window.postMessage({type:"STEAM_ADD",subids:limited},"*")
-    log("[LOG] Отправил первые 50 пакетов расширению")
-  }catch(e){
-    log("[ERROR] Не удалось загрузить subids.txt")
+const avatarEl = document.getElementById('avatar');
+const usernameEl = document.getElementById('username');
+const logs = document.getElementById('logs');
+const startBtn = document.getElementById('start');
+
+function log(msg) {
+  const time = new Date().toLocaleTimeString();
+  logs.textContent += `\n[${time}] ${msg}`;
+  logs.scrollTop = logs.scrollHeight;
+}
+
+async function loadSubids() {
+  log('Loading subids...');
+  const res = await fetch('https://davuksl.github.io/SteamGamesAdder/subids.txt');
+  const text = await res.text();
+  const ids = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(/Package\s+(\d+)/);
+    if (m) ids.push(m[1]);
+  }
+  log(`Loaded ${ids.length} packages.`);
+  return ids;
+}
+
+function getSteamUserInfo() {
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({action: 'getUserInfo'}, resp => {
+      if (resp && resp.avatar && resp.name) {
+        resolve(resp);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
+async function startAdding() {
+  startBtn.disabled = true;
+  const subids = await loadSubids();
+  const chunkSize = 50;
+  for (let i = 0; i < subids.length; i += chunkSize) {
+    const chunk = subids.slice(i, i + chunkSize);
+    log(`Sending ${chunk.length} packages to extension...`);
+    const results = await new Promise(resolve => {
+      chrome.runtime.sendMessage({action: 'addPackages', subids: chunk}, resolve);
+    });
+    results.forEach(r => log(`Package ${r.subid} - ${r.status}`));
+    if (results.some(r => r.status === 'RATE_LIMIT')) {
+      log('Rate limit hit. Pausing 3 minutes...');
+      await new Promise(r => setTimeout(r, 180000));
+    }
+  }
+  log('Finished processing all packages.');
+  startBtn.disabled = false;
+}
+
+async function init() {
+  const userInfo = await getSteamUserInfo();
+  if (userInfo) {
+    avatarEl.style.backgroundImage = `url(${userInfo.avatar})`;
+    usernameEl.textContent = userInfo.name;
+    log('User info loaded.');
+  } else {
+    log('User not logged in or extension not installed.');
   }
 }
-window.addEventListener("message",e=>{
-  if(e.data.type==="STEAM_ADD_RESULT"&&e.data.results){
-    e.data.results.forEach(({subid,status})=>{
-      log(new Date().toLocaleTimeString()+` Package ${subid} - ${status}`)
-    })
-  }
-})
+
+startBtn.onclick = startAdding;
+
+init();
 </script>
 </body>
 </html>
