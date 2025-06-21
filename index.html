@@ -4,63 +4,43 @@
 <meta charset="UTF-8" />
 <title>Steam Free Games Adder</title>
 <style>
-  body {
-    background: linear-gradient(135deg, #4b0082, #1c1c2b);
-    color: #ccc;
-    font-family: Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-  }
-  #avatar {
-    margin-top: 20px;
-    width: 64px;
-    height: 64px;
-    border: 3px solid #7f5af0;
-    border-radius: 50%;
-    background-size: cover;
-    background-position: center;
-  }
-  #username {
-    margin: 10px 0;
-    font-size: 20px;
-    color: #7f5af0;
-  }
-  #logs {
-    background: #222233;
-    border: 1px solid #7f5af0;
-    width: 90%;
-    max-width: 800px;
-    height: 300px;
-    overflow-y: auto;
-    padding: 10px;
-    font-family: monospace;
-    font-size: 14px;
-    white-space: pre-wrap;
-  }
-  #start {
-    margin: 20px;
-    padding: 12px 24px;
-    font-size: 18px;
-    background: #7f5af0;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  #start:disabled {
-    background: #444466;
-    cursor: not-allowed;
-  }
+  body { background: linear-gradient(135deg,#4b0082,#1c1c2b); color:#ccc; font-family:Arial,sans-serif; padding:20px; }
+  #logs { background:#222233; border:1px solid #7f5af0; padding:10px; height:300px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; }
+  button { background:#7f5af0;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-bottom:10px; }
+  button:disabled { background:#444;cursor:default; }
 </style>
 </head>
 <body>
-  <div id="avatar"></div>
-  <div id="username">Not logged in</div>
   <button id="start">Start Adding Free Games</button>
-  <pre id="logs">[LOG] Waiting for action...</pre>
-  <script src="content.js"></script>
+  <div id="logs">[LOG] Waiting for action...</div>
+<script>
+const logs = document.getElementById('logs');
+const btn = document.getElementById('start');
+function log(t){ logs.textContent += '\n'+new Date().toLocaleTimeString()+' '+t; logs.scrollTop=logs.scrollHeight; }
+
+async function loadSubids(){
+  const t = await fetch('https://davuksl.github.io/SteamGamesAdder/subids.txt').then(r=>r.text());
+  return Array.from(t.matchAll(/Package\s+(\d+)/g),m=>m[1]);
+}
+
+btn.onclick=async()=>{
+  btn.disabled=true;
+  log('Loading subids…');
+  const all = await loadSubids();
+  log(`Loaded ${all.length} packages`);
+  for(let i=0;i<all.length;i+=50){
+    const chunk=all.slice(i,i+50);
+    log(`Sending ${chunk.length}…`);
+    const res = await new Promise(r=>chrome.runtime.sendMessage({action:'addPackages',subids:chunk},r));
+    res.forEach(x=>log(`Package ${x.subid} - ${x.status}`));
+    if(res.some(x=>x.status==='RATE_LIMIT')){
+      log('Rate limit – waiting 3m');
+      await new Promise(r=>setTimeout(r,180000));
+    }
+  }
+  log('Done');
+  btn.disabled=false;
+};
+</script>
 </body>
 </html>
