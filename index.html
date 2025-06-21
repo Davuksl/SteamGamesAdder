@@ -64,27 +64,24 @@
             log.scrollTop = log.scrollHeight;
         }
 
+        window.addEventListener('message', (event) => {
+            if (event.source !== window) return;
+            if (event.data.type === 'FROM_EXTENSION') {
+                const { action, data } = event.data;
+                if (action === 'log') {
+                    logMessage(data.message);
+                } else if (action === 'status') {
+                    status.textContent = data.status;
+                } else if (action === 'progress') {
+                    progressBar.style.width = `${data.progress}%`;
+                }
+            }
+        });
+
         startBtn.addEventListener('click', () => {
             startBtn.disabled = true;
-            logMessage('Starting process...');
-            try {
-                chrome.runtime.sendMessage({ action: 'startAddingGames' }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        logMessage(`Error: ${chrome.runtime.lastError.message}`);
-                        startBtn.disabled = false;
-                        return;
-                    }
-                    if (response.success) {
-                        logMessage('Process started');
-                    } else {
-                        logMessage(`Error: ${response.error}`);
-                        startBtn.disabled = false;
-                    }
-                });
-            } catch (error) {
-                logMessage(`Error: ${error.message}`);
-                startBtn.disabled = false;
-            }
+            logMessage('Requesting extension to start adding games...');
+            window.postMessage({ type: 'TO_EXTENSION', action: 'startAddingGames' }, '*');
         });
     </script>
 </body>
