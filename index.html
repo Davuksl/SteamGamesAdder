@@ -1,95 +1,46 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Steam Free Game Adder</title>
-  <style>
-    body {
-      background: linear-gradient(135deg, #2f005f, #170037);
-      color: #eee;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      padding: 30px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      color: #b79cff;
-      margin-bottom: 20px;
-    }
-    button {
-      background: #7a5cff;
-      border: none;
-      padding: 15px 30px;
-      border-radius: 10px;
-      color: white;
-      font-size: 18px;
-      cursor: pointer;
-      transition: background 0.3s;
-      margin-bottom: 25px;
-      user-select: none;
-    }
-    button:hover {
-      background: #5636b8;
-    }
-    pre {
-      background: rgba(255 255 255 / 0.1);
-      border-radius: 12px;
-      padding: 20px;
-      width: 90vw;
-      max-width: 800px;
-      max-height: 450px;
-      overflow-y: auto;
-      font-family: 'Courier New', monospace;
-      font-size: 14px;
-      box-shadow: 0 0 20px #6a48ffaa;
-      white-space: pre-wrap;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Steam Free Game Adder</title>
+<style>
+  body{background:linear-gradient(135deg,#2f005f,#170037);color:#eee;font-family:sans-serif;padding:30px;display:flex;flex-direction:column;align-items:center}
+  h1{color:#b79cff;margin-bottom:20px}
+  button{background:#7a5cff;border:none;padding:15px 30px;border-radius:10px;color:#fff;font-size:18px;cursor:pointer;transition:background .3s;margin-bottom:25px;user-select:none}
+  button:hover{background:#5636b8}
+  pre{background:rgba(255 255 255 / 0.1);border-radius:12px;padding:20px;width:90vw;max-width:800px;max-height:450px;overflow-y:auto;font-family:monospace;font-size:14px;box-shadow:0 0 20px #6a48ffaa;white-space:pre-wrap}
+</style>
 </head>
 <body>
-  <h1>Steam Free Game Activator</h1>
-  <button id="startBtn">Активировать бесплатные пакеты</button>
-  <pre id="log">[LOG] Waiting for action...\n</pre>
-
-  <script>
-    const logEl = document.getElementById("log");
-
-    function log(text) {
-      logEl.textContent += text + "\n";
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    document.getElementById("startBtn").onclick = async () => {
-      logEl.textContent = "";
-      log("[LOG] Загружаю список пакетов...");
-      try {
-        const res = await fetch("https://davuksl.github.io/SteamGamesAdder/subids.txt");
-        const raw = await res.text();
-        const subids = Array.from(raw.matchAll(/Package (\d+)/g), m => Number(m[1]));
-
-        if (!subids.length) {
-          log("[ERROR] Не найдено ни одного package id");
-          return;
-        }
-        log(`[LOG] Найдено пакетов: ${subids.length}`);
-
-        // Отправляем сообщение расширению
-        window.postMessage({ type: "STEAM_ADD", subids }, "*");
-        log("[LOG] Отправил запрос расширению, жду ответа...");
-      } catch (e) {
-        log("[ERROR] Не удалось загрузить subids.txt");
-        console.error(e);
-      }
-    };
-
-    window.addEventListener("message", (e) => {
-      if (e.data.type === "STEAM_ADD_RESULT" && e.data.results) {
-        e.data.results.forEach(({ subid, status }) => {
-          log(`[${new Date().toLocaleTimeString()}] Package ${subid} - ${status}`);
-        });
-      }
-    });
-  </script>
+<h1>Steam Free Game Activator</h1>
+<button id="startBtn">Активировать бесплатные пакеты</button>
+<pre id="log">[LOG] Waiting for action...\n</pre>
+<script>
+const logEl=document.getElementById("log")
+function log(t){logEl.textContent+=t+"\n";logEl.scrollTop=logEl.scrollHeight}
+document.getElementById("startBtn").onclick=async()=>{
+  logEl.textContent=""
+  log("[LOG] Загружаю список пакетов...")
+  try{
+    const res=await fetch("https://davuksl.github.io/SteamGamesAdder/subids.txt")
+    const raw=await res.text()
+    const subids=Array.from(raw.matchAll(/Package (\d+)/g),m=>Number(m[1]))
+    if(!subids.length){log("[ERROR] Не найдено ни одного package id");return}
+    log("[LOG] Найдено пакетов: "+subids.length)
+    const limited=subids.slice(0,50)
+    window.postMessage({type:"STEAM_ADD",subids:limited},"*")
+    log("[LOG] Отправил первые 50 пакетов расширению")
+  }catch(e){
+    log("[ERROR] Не удалось загрузить subids.txt")
+  }
+}
+window.addEventListener("message",e=>{
+  if(e.data.type==="STEAM_ADD_RESULT"&&e.data.results){
+    e.data.results.forEach(({subid,status})=>{
+      log(new Date().toLocaleTimeString()+` Package ${subid} - ${status}`)
+    })
+  }
+})
+</script>
 </body>
 </html>
