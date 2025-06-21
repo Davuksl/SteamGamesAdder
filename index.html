@@ -68,15 +68,19 @@
             if (event.source !== window) return;
             if (event.data.type === 'FROM_EXTENSION') {
                 const { action, data } = event.data;
-                if (action === 'log') {
-                    logMessage(data.message);
-                } else if (action === 'status') {
-                    status.textContent = data.status;
-                    if (data.status === 'Status: Completed' || data.status === 'Status: Error') {
-                        startBtn.disabled = false;
+                try {
+                    if (action === 'log') {
+                        logMessage(data.message);
+                    } else if (action === 'status') {
+                        status.textContent = data.status;
+                        if (data.status === 'Status: Completed' || data.status === 'Status: Error') {
+                            startBtn.disabled = false;
+                        }
+                    } else if (action === 'progress') {
+                        progressBar.style.width = `${data.progress}%`;
                     }
-                } else if (action === 'progress') {
-                    progressBar.style.width = `${data.progress}%`;
+                } catch (error) {
+                    logMessage(`UI error: ${error.message}`);
                 }
             }
         });
@@ -86,6 +90,12 @@
             logMessage('Requesting extension to start adding games...');
             try {
                 window.postMessage({ type: 'TO_EXTENSION', action: 'startAddingGames' }, '*');
+                setTimeout(() => {
+                    if (status.textContent === 'Status: Idle') {
+                        logMessage('No response from extension. Check if extension is loaded.');
+                        startBtn.disabled = false;
+                    }
+                }, 5000);
             } catch (error) {
                 logMessage(`Error starting process: ${error.message}`);
                 startBtn.disabled = false;
