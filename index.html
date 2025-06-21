@@ -73,9 +73,12 @@
           return;
         }
         log(`[LOG] Найдено пакетов: ${subids.length}`);
+
+        // Отправляем сообщение расширению
         window.postMessage({ type: "STEAM_ADD", subids }, "*");
+        log("[LOG] Отправил запрос расширению, жду ответа...");
       } catch (e) {
-        log("[ERROR] Не удалось загрузить subids.json");
+        log("[ERROR] Не удалось загрузить subids.txt");
         console.error(e);
       }
     };
