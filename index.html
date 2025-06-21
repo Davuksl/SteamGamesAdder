@@ -24,14 +24,22 @@ async function loadSubids(){
 }
 
 btn.onclick=async()=>{
-  btn.disabled=true;
+  btn.disabled = true;
   log('Loading subids…');
   const all = await loadSubids();
   log(`Loaded ${all.length} packages`);
   for(let i=0;i<all.length;i+=50){
-    const chunk=all.slice(i,i+50);
+    const chunk = all.slice(i, i+50);
     log(`Sending ${chunk.length}…`);
-    const res = await new Promise(r=>chrome.runtime.sendMessage({action:'addPackages',subids:chunk},r));
+    window.postMessage({ action: 'addPackages', subids: chunk }, '*');
+    const res = await new Promise(r=>{
+      window.addEventListener('message', function cb(e){
+        if(e.data?.action==='addPackagesResult'){
+          window.removeEventListener('message',cb);
+          r(e.data.results);
+        }
+      });
+    });
     res.forEach(x=>log(`Package ${x.subid} - ${x.status}`));
     if(res.some(x=>x.status==='RATE_LIMIT')){
       log('Rate limit – waiting 3m');
@@ -39,7 +47,7 @@ btn.onclick=async()=>{
     }
   }
   log('Done');
-  btn.disabled=false;
+  btn.disabled = false;
 };
 </script>
 </body>
