@@ -1,157 +1,28 @@
+
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Steam Free Games</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      background: linear-gradient(135deg, #1e3a8a, #3b82f6);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .log-entry {
-      transition: all 0.3s ease-in-out;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .log-entry.success { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
-    .log-entry.error { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-    .log-entry.warn { background: rgba(234, 179, 8, 0.1); color: #eab308; }
-    .container {
-      animation: fadeIn 0.5s ease-in;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  </style>
+  <title>Steam Free Game Activator</title>
 </head>
 <body>
-  <div class="container bg-gray-900 bg-opacity-90 p-8 rounded-xl shadow-2xl w-full max-w-lg text-gray-100">
-    <h1 class="text-3xl font-bold mb-6 text-center text-blue-300">Steam Free Games</h1>
-    <div id="auth-section">
-      <p class="text-sm mb-4 text-gray-400">
-        Sign in through Steam to access your account. Your login credentials will not be shared. A unique SteamID will be shared to identify your profile per your privacy settings.
-      </p>
-      <a
-        href="/auth/steam"
-        class="block w-full p-3 bg-blue-600 text-white text-center rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Войти через Steam
-      </a>
-    </div>
-    <div id="main-section" class="hidden">
-      <input
-        id="api-key"
-        type="text"
-        placeholder="Введите Steam API ключ"
-        class="w-full p-3 mb-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <button
-        id="start-btn"
-        class="w-full p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Начать добавление игр
-      </button>
-      <div class="max-h-[300px] overflow-y-auto bg-gray-800 p-4 rounded-lg mt-4">
-        <pre id="logs" class="text-sm"></pre>
-      </div>
-    </div>
-  </div>
+  <h1>Welcome, Steam User</h1>
+  <button id="go">Activate Free Packages</button>
+  <pre id="log"></pre>
+
   <script>
-    const authSection = document.getElementById('auth-section');
-    const mainSection = document.getElementById('main-section');
-    const apiKeyInput = document.getElementById('api-key');
-    const startBtn = document.getElementById('start-btn');
-    const logs = document.getElementById('logs');
-    let isProcessing = false;
-    let steamId = null;
+    const subids = [1339553, 1800790, 1800792];
 
-    function logMessage(message, type = 'info') {
-      const timestamp = new Date().toLocaleTimeString();
-      const logEntry = document.createElement('div');
-      logEntry.className = `log-entry ${type}`;
-      logEntry.textContent = `[${timestamp}] ${message}`;
-      logs.appendChild(logEntry);
-      logs.scrollTop = logs.scrollHeight;
-    }
-
-    fetch('/auth/steam/user')
-      .then(res => res.json())
-      .then(data => {
-        if (data.steamId) {
-          steamId = data.steamId;
-          authSection.classList.add('hidden');
-          mainSection.classList.remove('hidden');
-          logMessage(`Logged in with SteamID: ${steamId}`, 'success');
-          if (apiKeyInput.value) addFreeGames();
-        }
-      });
-
-    async function addFreeGames() {
-      if (isProcessing) return;
-      isProcessing = true;
-      startBtn.textContent = 'Обработка...';
-      startBtn.classList.replace('bg-blue-600', 'bg-gray-600');
-      startBtn.disabled = true;
-      logMessage('Starting to add free games...');
-
-      const apiKey = apiKeyInput.value;
-      if (!apiKey) {
-        logMessage('Ошибка: Введите API ключ', 'error');
-        stopProcessing();
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/free-games', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ steamId, apiKey })
+    document.getElementById("go").onclick = () => {
+      chrome.runtime.sendMessage("YOUR_EXTENSION_ID", {
+        action: "addPackages",
+        subids
+      }, response => {
+        const log = document.getElementById("log");
+        response.results.forEach(r => {
+          log.textContent += `[${new Date().toLocaleTimeString()}] Package ${r.subid} - ${r.status}\n`;
         });
-        const data = await response.json();
-
-        if (data.error) {
-          logMessage(`Error: ${data.error}`, 'error');
-          if (data.error.includes('Rate limit')) {
-            logMessage('Rate limit reached. Pausing for 3 minutes...', 'warn');
-            await new Promise(resolve => setTimeout(resolve, 3 * 60 * 1000));
-            logMessage('Resuming...', 'info');
-            await addFreeGames();
-            return;
-          }
-          stopProcessing();
-          return;
-        }
-
-        for (const game of data.games) {
-          logMessage(`#${game.id} Package ${game.packageId} - [Ignore] ${game.status}`, game.status === 'OK' ? 'success' : 'error');
-        }
-        logMessage('Process completed.', 'success');
-      } catch (err) {
-        logMessage(`Error: ${err.message}`, 'error');
-      } finally {
-        stopProcessing();
-      }
-    }
-
-    function stopProcessing() {
-      isProcessing = false;
-      startBtn.textContent = 'Начать добавление игр';
-      startBtn.classList.replace('bg-gray-600', 'bg-blue-600');
-      startBtn.disabled = false;
-    }
-
-    startBtn.addEventListener('click', addFreeGames);
-
-    apiKeyInput.addEventListener('input', () => {
-      if (steamId && apiKeyInput.value && !isProcessing) addFreeGames();
-    });
+      });
+    };
   </script>
 </body>
 </html>
