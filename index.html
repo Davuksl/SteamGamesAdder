@@ -4,45 +4,47 @@
 <meta charset="UTF-8" />
 <title>Steam Free Games Adder</title>
 <style>
-  body { background: linear-gradient(135deg,#4b0082,#1c1c2b); color:#ccc; font-family:Arial,sans-serif; padding:20px; }
-  #logs { background:#222233; border:1px solid #7f5af0; padding:10px; height:300px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; }
-  button { background:#7f5af0;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-bottom:10px; }
-  button:disabled { background:#444;cursor:default; }
+  body { background:linear-gradient(135deg,#4b0082,#1c1c2b);color:#ccc;font-family:Arial,sans-serif;padding:20px }
+  #logs { background:#222233;border:1px solid #7f5af0;padding:10px;height:300px;overflow-y:auto;white-space:pre-wrap;font-family:monospace }
+  button { background:#7f5af0;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;margin-bottom:10px }
+  button:disabled { background:#444;cursor:default }
 </style>
 </head>
 <body>
   <button id="start">Start Adding Free Games</button>
   <div id="logs">[LOG] Waiting for action...</div>
 <script>
-const logs = document.getElementById("logs"),
-      btn = document.getElementById("start");
-function log(t){ logs.textContent+="\n"+new Date().toLocaleTimeString()+" "+t; logs.scrollTop=logs.scrollHeight; }
-async function loadSubids(){
-  const t=await fetch("https://davuksl.github.io/SteamGamesAdder/subids.txt").then(r=>r.text());
-  return Array.from(t.matchAll(/Package\s+(\d+)/g),m=>m[1]);
+const logs = document.getElementById('logs'), btn = document.getElementById('start');
+function log(t) { logs.textContent += '\n' + new Date().toLocaleTimeString() + ' ' + t; logs.scrollTop = logs.scrollHeight; }
+async function loadSubids() {
+  const t = await fetch('https://davuksl.github.io/SteamGamesAdder/subids.txt').then(r => r.text());
+  return Array.from(t.matchAll(/Package\s+(\d+)/g), m => m[1]);
 }
-btn.onclick=async()=>{
-  btn.disabled=true; log("Loading subids…");
-  const all=await loadSubids(); log("Loaded "+all.length);
-  for(let i=0;i<all.length;i+=50){
-    const chunk=all.slice(i,i+50);
-    log("Sending "+chunk.length);
-    window.postMessage({ action:"addPackages", subids:chunk },"*");
-    const res=await new Promise(r=>{
-      window.addEventListener("message",function f(e){
-        if(e.data?.action==="addPackagesResult"){
-          window.removeEventListener("message",f);
+btn.onclick = async () => {
+  btn.disabled = true;
+  log('Loading subids…');
+  const all = await loadSubids();
+  log(`Loaded ${all.length} packages`);
+  for (let i = 0; i < all.length; i += 50) {
+    const chunk = all.slice(i, i + 50);
+    log(`Sending ${chunk.length}…`);
+    window.postMessage({ action: 'addPackages', subids: chunk }, '*');
+    const res = await new Promise(r => {
+      window.addEventListener('message', function cb(e) {
+        if (e.data?.action === 'addPackagesResult') {
+          window.removeEventListener('message', cb);
           r(e.data.results);
         }
       });
     });
-    res.forEach(x=>log("Package "+x.subid+" - "+x.status));
-    if(res.some(x=>x.status==="RATE_LIMIT")){
-      log("Rate limit – waiting 3m");
-      await new Promise(r=>setTimeout(r,180000));
+    res.forEach(x => log(`Package ${x.subid} - ${x.status}`));
+    if (res.some(x => x.status === 'RATE_LIMIT')) {
+      log('Rate limit – waiting 3m');
+      await new Promise(r => setTimeout(r, 180000));
     }
   }
-  log("Done"); btn.disabled=false;
+  log('Done');
+  btn.disabled = false;
 };
 </script>
 </body>
