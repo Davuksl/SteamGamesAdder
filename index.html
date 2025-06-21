@@ -13,10 +13,7 @@
       align-items: center;
       padding: 40px;
     }
-    h1 {
-      margin-bottom: 20px;
-      color: #a29bfe;
-    }
+    h1 { color: #a29bfe; margin-bottom: 20px; }
     button {
       background-color: #6c5ce7;
       border: none;
@@ -28,41 +25,36 @@
       transition: 0.3s;
       margin-bottom: 30px;
     }
-    button:hover {
-      background-color: #4834d4;
-    }
+    button:hover { background-color: #4834d4; }
     pre {
-      width: 90%;
-      max-width: 800px;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 20px;
-      border-radius: 10px;
-      white-space: pre-wrap;
-      overflow-y: auto;
-      max-height: 500px;
+      width: 90%; max-width: 800px;
+      background: rgba(255,255,255,0.1);
+      padding: 20px; border-radius: 10px;
       font-family: 'Courier New', monospace;
       box-shadow: 0 0 15px rgba(0,0,0,0.3);
+      overflow-y: auto; max-height: 500px;
     }
   </style>
 </head>
 <body>
   <h1>Steam Free Game Activator</h1>
   <button id="go">Activate Free Packages</button>
-  <pre id="log">[LOG] Waiting for action...</pre>
+  <pre id="log">[LOG] Waiting for action...\n</pre>
 
   <script>
-    const subids = [1339553, 1800790, 1800792];
-
-    document.getElementById("go").onclick = () => {
+    document.getElementById("go").onclick = async () => {
+      const log = document.getElementById("log");
+      log.textContent = "";
+      const res = await fetch("https://davuksl.github.io/SteamGamesAdder/subids.json");
+      const subids = await res.json();
       window.postMessage({ type: "STEAM_ADD", subids }, "*");
     };
 
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", event => {
       if (event.data.type === "STEAM_ADD_RESULT") {
         const log = document.getElementById("log");
         event.data.results.forEach(r => {
-          const line = `[${new Date().toLocaleTimeString()}] Package ${r.subid} - ${r.status}\\n`;
-          log.textContent += line;
+          log.textContent += `[${new Date().toLocaleTimeString()}] Package ${r.subid} - ${r.status}\n`;
         });
       }
     });
